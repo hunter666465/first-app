@@ -1,0 +1,114 @@
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import requests
+import os
+import cv2  # OpenCV for video/image processing
+
+# Initialize Flask app
+app = Flask(__name__)
+CORS(app)  # Enable CORS for frontend integration (optional)
+
+# Constants
+AI_IMAGE_API_URL = "https://example-ai-api.com/generate-image"  # Placeholder API URL
+UPLOAD_FOLDER = "uploads"
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)  # Create upload folder if it doesn't exist
+
+# Route 1: AI Image Generator
+@app.route("/generate-image", methods=["POST"])
+def generate_image():
+    """
+    Accepts a text prompt and generates an image via an AI backend API.
+    """
+    try:
+        data = request.get_json()
+        prompt = data.get("prompt", "")
+        
+        if not prompt:
+            return jsonify({"error": "No prompt provided"}), 400
+
+        # Simulate AI Image Generator API call
+        response = requests.post(AI_IMAGE_API_URL, json={"prompt": prompt})
+
+        if response.status_code == 200:
+            result = response.json()
+            image_url = result.get("imageUrl", "")
+            return jsonify({"imageUrl": image_url})
+        else:
+            return jsonify({"error": "AI Image API Failed", "details": response.text}), 500
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# Route 2: Media Processing (Images/Videos)
+@app.route("/process-media", methods=["POST"])
+def process_media():
+    """
+    Accepts image or video uploads and processes them.
+    """
+    try:
+        if "file" not in request.files:
+            return jsonify({"error": "No file provided"}), 400
+
+        file = request.files["file"]
+        filename = os.path.join(UPLOAD_FOLDER, file.filename)
+        file.save(filename)
+
+        # Check file type
+        file_ext = os.path.splitext(filename)[-1].lower()
+        if file_ext in [".png", ".jpg", ".jpeg"]:
+            # Process Image
+            return process_image(filename)
+        elif file_ext in [".mp4", ".avi", ".mov"]:
+            # Process Video
+            return process_video(filename)
+        else:
+            return jsonify({"error": "Unsupported file type"}), 400
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+def process_image(filepath):
+    """
+    Processes an image (placeholder example).
+    """
+    # Load image using OpenCV
+    image = cv2.imread(filepath)
+    height, width, _ = image.shape
+
+    # Example: Print image dimensions
+    print(f"Processing Image - Dimensions: {width}x{height}")
+
+    return jsonify({
+        "message": "Image processed successfully",
+        "dimensions": f"{width}x{height}"
+    })
+
+
+def process_video(filepath):
+    """
+    Processes a video (placeholder example).
+    """
+    cap = cv2.VideoCapture(filepath)
+    if not cap.isOpened():
+        return jsonify({"error": "Failed to open video file"}), 500
+
+    frame_count = 0
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+        frame_count += 1
+
+    cap.release()
+    print(f"Processing Video - Total Frames: {frame_count}")
+
+    return jsonify({
+        "message": "Video processed successfully",
+        "total_frames": frame_count
+    })
+
+
+# Main entry point
+if __name__ == "__main__":
+    app.run(debug=True, port=5000)
